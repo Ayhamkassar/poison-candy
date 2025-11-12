@@ -11,12 +11,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ---------------- إعداد المسار الثابت ----------------
-app.use(express.static(path.join(__dirname, "public"))); 
-// خزن ملفاتك (index.html, style.css, script.js, bg.jpg) بمجلد public
+app.use(express.static(path.join(__dirname, "public")));
 
 // ---------------- غرف Socket.IO ----------------
-const rooms = {}; // لتخزين اللاعبين داخل كل غرفة
+const rooms = {};       // تخزين اللاعبين: { roomId: [socketId, socketId] }
+const roomState = {};   // حالة كل غرفة: { currentPlayer, lives, dangers }
 
 io.on("connection", (socket) => {
     console.log("🔌 لاعب متصل");
@@ -31,64 +30,78 @@ io.on("connection", (socket) => {
         rooms[roomId].push(socket.id);
         socket.join(roomId);
 
-        const playerNumber = rooms[roomId].length; // 1 أو 2
+        const playerNumber = rooms[roomId].length;
         socket.emit("playerNumber", playerNumber);
 
-        // إرسال حالة الغرفة لكل اللاعبين
-        io.to(roomId).emit("roomStatus", rooms[roomId].length);
+        if (!roomState[roomId]) {
+            roomState[roomId] = {
+                currentPlayer: 1,
+                lives: {1:3, 2:3},
+                dangers: {1: [], 2: []},
+                ready: {1:false,2:false},
+                setupDone: {1:false,2:false}
+            };
+        }
 
+        io.to(roomId).emit("roomStatus", rooms[roomId].length);
         console.log(`🎮 اللاعب ${playerNumber} دخل الغرفة ${roomId}`);
 
-        // جاهزية
+        // ---------------- Ready ----------------
         socket.on("playerReady", (data) => {
+            roomState[data.roomId].ready[data.player] = true;
             socket.to(data.roomId).emit("updateReady", data.player);
+
+            const ready = roomState[data.roomId].ready;
+            if (ready[1] && ready[2]) {
+                io.to(data.roomId).emit("startPlayer1Setup");
+            }
         });
 
-        // بدأ اللعبة
-        socket.on("playerBegin", (data) => {
-            io.to(data.roomId).emit("updateBegin", data.player);
-        });
-        // اختيار المربعات الخطرة
-socket.on("chooseDanger", (data) => {
-    socket.to(data.roomId).emit("updateDanger", data);
-});
-
-// لما اللاعب يخلص اختياره
-socket.on("playerFinishedSelection", (data) => {
-    // إذا خلص الأول → نبلغ الثاني يبدأ اختياره
-    if (data.player === 1) {
-        io.to(data.roomId).emit("startPlayer2Setup");
-    }
-    // إذا خلص الثاني → نبدأ اللعبة
-    if (data.player === 2) {
-        io.to(data.roomId).emit("startGame");
-    }
-});
-
-
-        // اختيار المربعات الخطرة
+        // ---------------- اختيار مربعات الخطر ----------------
         socket.on("chooseDanger", (data) => {
+            roomState[data.roomId].dangers[data.player].push(data.index);
             socket.to(data.roomId).emit("updateDanger", data);
         });
 
-        // النقر أثناء اللعب
-        socket.on("cellClicked", (data) => {
-            socket.to(data.roomId).emit("updateCell", data);
+        socket.on("playerFinishedSelection", (data) => {
+            roomState[data.roomId].setupDone[data.player] = true;
+            if (data.player === 1) {
+                io.to(data.roomId).emit("startPlayer2Setup");
+            }
+            if (data.player === 2) {
+                io.to(data.roomId).emit("startGame", roomState[data.roomId].dangers);
+            }
         });
 
-        // عند الخروج
+        // ---------------- اللعب ----------------
+        socket.on("cellClicked", (data) => {
+            const state = roomState[data.roomId];
+            if (state.currentPlayer !== data.player) return; // مش دوره
+
+            // خصم حياة إذا خطر
+            if (state.dangers[data.player].includes(data.index)) {
+                state.lives[data.player]--;
+            }
+
+            // تبادل الدور
+            state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
+
+            io.to(data.roomId).emit("updateCell", data);
+            io.to(data.roomId).emit("updateTurn", state.currentPlayer);
+        });
+
+        // ---------------- disconnect ----------------
         socket.on("disconnect", () => {
             console.log("❌ لاعب خرج");
             if (rooms[roomId]) {
                 rooms[roomId] = rooms[roomId].filter(id => id !== socket.id);
                 if (rooms[roomId].length === 0) delete rooms[roomId];
             }
+            if(roomState[roomId]) delete roomState[roomId];
         });
+
     });
 });
 
-// ---------------- تشغيل السيرفر ----------------
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 السيرفر شغال على المنفذ ${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 السيرفر شغال على المنفذ ${PORT}`));
