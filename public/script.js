@@ -77,13 +77,11 @@ function createGridForSetup(player){
 }
 
 // ------------------- بدء اللعبة -------------------
-socket.on("startGame", (dangers) => {
-    createGrid(2, dangers[2]); // شبكة اللاعب الثاني ← لللاعب 1
-    createGrid(1, dangers[1]); // شبكة اللاعب الأول ← لللاعب 2
-
-    alert("اللعبة بدأت! اللاعب 1 يبدأ باللعب على شبكة اللاعب 2");
-    currentPlayer = 1; // اللاعب 1 يبدأ
+socket.on("startGame",(dangers)=>{
+    createGrid(1,dangers[1]);
+    createGrid(2,dangers[2]);
 });
+
 // ------------------- اللعب -------------------
 function createGrid(player,dangers){
     const grid = player===1?grid1:grid2;
@@ -100,41 +98,35 @@ function createGrid(player,dangers){
     renderHearts(2);
 }
 
-function handlePlayClick(e) {
-    if (currentPlayer === null) return; // إذا اللعبة انتهت، لا نفعل شيء
-
+function handlePlayClick(e){
     const cell = e.target;
-    const clickedGrid = parseInt(cell.dataset.player); // صاحب الشبكة
-    const playerPlaying = currentPlayer; // من يلعب الآن
+    const player = parseInt(cell.dataset.player);
+    if(player!==currentPlayer){ alert(`دور اللاعب ${currentPlayer}`); return; }
+    if(cell.classList.contains("clicked")) return;
 
-    // تحقق من الدور: اللاعب 1 يلعب على شبكة 2، واللاعب 2 يلعب على شبكة 1
-    if ((playerPlaying === 1 && clickedGrid !== 2) || (playerPlaying === 2 && clickedGrid !== 1)) {
-        alert(`دور اللاعب ${currentPlayer} على شبكة الخصم`);
-        return;
-    }
-
-    if (cell.classList.contains("clicked")) return;
-
-    const dangers = clickedGrid === 1 ? playerDangerSelections[1] : playerDangerSelections[2];
-    const isDanger = dangers.includes(parseInt(cell.dataset.index));
-
+    const isDanger = playerDangerSelections[player].includes(parseInt(cell.dataset.index));
     cell.classList.add("clicked");
-    if (isDanger) {
+    if(isDanger){
         cell.classList.add("danger");
-        lives[playerPlaying]--;
-        renderHearts(playerPlaying);
-        if (lives[playerPlaying] === 0) {
-            socket.emit("gameOver", { loser: playerPlaying });
-            return;
-        }
-    } else cell.textContent = "🍬";
+        lives[player]--;
+        renderHearts(player);
+        if(lives[player]===0){ alert(`انتهت اللعبة! اللاعب ${player} خسر.`); revealAll(player); return; }
+    } else cell.textContent="🍬";
 
-    socket.emit("cellClicked", { roomId: "room1", player: clickedGrid, index: parseInt(cell.dataset.index), isDanger });
-
-    // تبديل الدور
-    currentPlayer = currentPlayer === 1 ? 2 : 1;
-    socket.emit("updateTurn", currentPlayer);
+    socket.emit("cellClicked",{roomId:"room1",player,index:parseInt(cell.dataset.index),isDanger});
 }
+
+// ------------------- استقبال التحديثات -------------------
+socket.on("updateCell",(data)=>{
+    const grid = data.player===1?grid1:grid2;
+    const cell = grid.children[data.index];
+    cell.classList.add("clicked");
+    if(data.isDanger) cell.classList.add("danger");
+    else cell.textContent="🍬";
+});
+
+socket.on("updateTurn",(player)=>{ currentPlayer=player; });
+
 // ------------------- القلوب -------------------
 function renderHearts(player){
     document.getElementById(`hearts${player}`).innerHTML="❤️".repeat(lives[player]);
