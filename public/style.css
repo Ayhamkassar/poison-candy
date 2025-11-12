@@ -69,6 +69,23 @@ h1 {
     text-align: center;
 }
 
+button {
+    padding: 8px 16px;
+    font-size: 16px;
+    margin-top: 10px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background-color: #4caf50;
+    color: white;
+}
+
+button:disabled {
+    background-color: #aaa;
+    cursor: not-allowed;
+}
+
+
 .grid {
     display: grid;
     grid-template-columns: repeat(3, 70px);

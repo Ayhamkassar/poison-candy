@@ -24,18 +24,24 @@
     </div>
 
     <!-- اللعبة -->
-    <div id="game" style="display:none;">
+    <div id="game" style="display:flex; gap:30px; justify-content:center;">
+        <!-- اللاعب 1 -->
         <div class="player card">
             <h3>اللاعب 1</h3>
             <div class="hearts" id="hearts1">❤️❤️❤️</div>
             <div id="grid1" class="grid"></div>
+            <button id="begin1" disabled>Begin</button>
         </div>
+    
+        <!-- اللاعب 2 -->
         <div class="player card">
             <h3>اللاعب 2</h3>
             <div class="hearts" id="hearts2">❤️❤️❤️</div>
             <div id="grid2" class="grid"></div>
+            <button id="begin2" disabled>Begin</button>
         </div>
     </div>
+    
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
