@@ -4,73 +4,74 @@ import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, "public"))); // مجلد الواجهة
+// ---------------- إعداد المسار الثابت ----------------
+app.use(express.static(path.join(__dirname, "public"))); 
+// خزن ملفاتك (index.html, style.css, script.js, bg.jpg) بمجلد public
 
-let rooms = {}; // { roomCode: { players: [], dangers: {}, ready: {} } }
+// ---------------- غرف Socket.IO ----------------
+const rooms = {}; // لتخزين اللاعبين داخل كل غرفة
 
 io.on("connection", (socket) => {
-  console.log("🔌 لاعب متصل:", socket.id);
+    console.log("🔌 لاعب متصل");
 
-  socket.on("createRoom", () => {
-    const roomCode = Math.random().toString(36).substring(2, 7);
-    rooms[roomCode] = { players: [socket.id], dangers: {}, ready: {} };
-    socket.join(roomCode);
-    socket.emit("roomCreated", { roomCode, playerNumber: 1 });
-    console.log("🆕 تم إنشاء غرفة:", roomCode);
-  });
+    socket.on("joinRoom", (roomId) => {
+        if (!rooms[roomId]) rooms[roomId] = [];
+        if (rooms[roomId].length >= 2) {
+            socket.emit("roomFull");
+            return;
+        }
 
-  socket.on("joinRoom", (roomCode) => {
-    const room = rooms[roomCode];
-    if (!room) {
-      socket.emit("errorMsg", "❌ الغرفة غير موجودة!");
-      return;
-    }
-    if (room.players.length >= 2) {
-      socket.emit("errorMsg", "⚠️ الغرفة ممتلئة!");
-      return;
-    }
+        rooms[roomId].push(socket.id);
+        socket.join(roomId);
 
-    room.players.push(socket.id);
-    socket.join(roomCode);
-    socket.emit("roomJoined", { roomCode, playerNumber: 2 });
-    io.to(roomCode).emit("bothJoined");
-    console.log("👥 لاعب دخل الغرفة:", roomCode);
-  });
+        const playerNumber = rooms[roomId].length; // 1 أو 2
+        socket.emit("playerNumber", playerNumber);
 
-  socket.on("chooseDanger", ({ roomCode, player, index }) => {
-    const room = rooms[roomCode];
-    if (!room.dangers[player]) room.dangers[player] = [];
-    room.dangers[player].push(index);
-    socket.to(roomCode).emit("updateDanger", { player, index });
-  });
+        // إرسال حالة الغرفة لكل اللاعبين
+        io.to(roomId).emit("roomStatus", rooms[roomId].length);
 
-  socket.on("playerReady", ({ roomCode, player }) => {
-    const room = rooms[roomCode];
-    room.ready[player] = true;
-    io.to(roomCode).emit("updateReady", room.ready);
-    if (room.ready[1] && room.ready[2]) {
-      io.to(roomCode).emit("startGame", room.dangers);
-    }
-  });
+        console.log(`🎮 اللاعب ${playerNumber} دخل الغرفة ${roomId}`);
 
-  socket.on("cellClicked", ({ roomCode, player, index, isDanger }) => {
-    socket.to(roomCode).emit("updateCell", { player, index, isDanger });
-  });
+        // جاهزية
+        socket.on("playerReady", (data) => {
+            socket.to(data.roomId).emit("updateReady", data.player);
+        });
 
-  socket.on("disconnect", () => {
-    for (const [code, room] of Object.entries(rooms)) {
-      if (room.players.includes(socket.id)) {
-        delete rooms[code];
-        io.to(code).emit("errorMsg", "🚪 اللاعب الآخر غادر الغرفة!");
-        console.log("❌ تم حذف الغرفة:", code);
-      }
-    }
-  });
+        // بدأ اللعبة
+        socket.on("playerBegin", (data) => {
+            io.to(data.roomId).emit("updateBegin", data.player);
+        });
+
+        // اختيار المربعات الخطرة
+        socket.on("chooseDanger", (data) => {
+            socket.to(data.roomId).emit("updateDanger", data);
+        });
+
+        // النقر أثناء اللعب
+        socket.on("cellClicked", (data) => {
+            socket.to(data.roomId).emit("updateCell", data);
+        });
+
+        // عند الخروج
+        socket.on("disconnect", () => {
+            console.log("❌ لاعب خرج");
+            if (rooms[roomId]) {
+                rooms[roomId] = rooms[roomId].filter(id => id !== socket.id);
+                if (rooms[roomId].length === 0) delete rooms[roomId];
+            }
+        });
+    });
 });
 
-server.listen(3000, () => console.log("✅ السيرفر شغال على المنفذ 3000"));
+// ---------------- تشغيل السيرفر ----------------
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 السيرفر شغال على المنفذ ${PORT}`);
+});
