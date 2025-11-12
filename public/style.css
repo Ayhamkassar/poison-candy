@@ -1,0 +1,57 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
+}
+
+h1 {
+    margin-top: 20px;
+}
+#game {
+    display: flex;
+    flex-direction: row; /* بدل column خليهم جنب بعض */
+    justify-content: center; /* توسيط اللاعبين أفقياً */
+    align-items: flex-start;
+    gap: 50px; /* مسافة بين اللاعبين */
+}
+
+.player {
+    text-align: center;
+}
+
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 80px);
+    grid-template-rows: repeat(3, 80px);
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.cell {
+    background-color: #ffd700;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    cursor: pointer;
+    border-radius: 8px;
+    user-select: none;
+}
+
+.cell.danger {
+    background-color: red;
+}
+.cell.danger-setup {
+    background-color: orange; /* لون مختلف أثناء اختيار الخطر */
+}
+
+.hearts {
+    font-size: 24px;
+    margin-bottom: 10px;
+}

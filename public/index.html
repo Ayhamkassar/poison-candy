@@ -1,0 +1,32 @@
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io(); // Railway يعطيك PORT تلقائياً
+
+// انضمام للغرفة
+socket.emit("joinRoom", "room1");
+
+// إرسال اختيار مربعات الخطر
+function sendDangerSelection(player, index) {
+    socket.emit("chooseDanger", { roomId: "room1", player, index });
+}
+
+// إرسال النقر على الخلية
+function sendCellClick(player, index) {
+    socket.emit("cellClicked", { roomId: "room1", player, index });
+}
+
+// استقبال التحديثات من السيرفر
+socket.on("updateDanger", data => {
+    const grid = data.player === 1 ? grid1 : grid2;
+    const cell = grid.children[data.index];
+    cell.classList.add("danger-setup");
+});
+
+socket.on("updateCell", data => {
+    const grid = data.player === 1 ? grid1 : grid2;
+    const cell = grid.children[data.index];
+    cell.classList.add("clicked");
+    if(data.isDanger) cell.classList.add("danger");
+    else cell.textContent = "🍬";
+});
+</script>
