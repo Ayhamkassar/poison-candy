@@ -112,7 +112,7 @@ button:disabled {
 }
 
 .cell.danger { background-color: #e53935; color: white; }
-.cell.danger-setup { background-color: #ff9800; }
+.cell.danger-setup { background-color: #ffd700; }
 
 .hearts {
     font-size: 22px;
