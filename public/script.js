@@ -49,25 +49,24 @@ socket.on("startPlayer2Setup", ()=> {
         createGridForSetup(2);
     } else alert("بانتظار اللاعب الثاني لاختيار مربعاته...");
 });
-
 function createGridForSetup(player){
-    const grid = player===1?grid1:grid2;
+    const grid = player===1 ? grid1 : grid2;
     grid.innerHTML = "";
     let count = 0;
-    for(let i=0;i<9;i++){
+    for(let i=0; i<100; i++){   // 10x10 = 100 مربع
         const cell = document.createElement("div");
         cell.classList.add("cell");
         cell.dataset.index = i;
         cell.dataset.player = player;
-        if(playerNumber===player) cell.addEventListener("click",e=>{
+        if(playerNumber===player) cell.addEventListener("click", e => {
             if(selectedDone[playerNumber]) return;
             if(cell.classList.contains("danger-setup")) return;
             cell.classList.add("danger-setup");
             playerDangerSelections[playerNumber].push(i);
             count++;
             socket.emit("chooseDanger",{roomId:"room1",player:playerNumber,index:i});
-            if(count===3){
-                selectedDone[playerNumber]=true;
+            if(count===3){  // عدد مربعات الخطر يبقى 3 حسب اللعبة
+                selectedDone[playerNumber] = true;
                 socket.emit("playerFinishedSelection",{roomId:"room1",player:playerNumber});
                 alert("اخترت 3 مربعات! بانتظار اللاعب الآخر...");
             }
@@ -75,6 +74,7 @@ function createGridForSetup(player){
         grid.appendChild(cell);
     }
 }
+
 
 // ------------------- بدء اللعبة -------------------
 socket.on("startGame",(dangers)=>{
@@ -84,19 +84,20 @@ socket.on("startGame",(dangers)=>{
 
 // ------------------- اللعب -------------------
 function createGrid(player,dangers){
-    const grid = player===1?grid1:grid2;
+    const grid = player===1 ? grid1 : grid2;
     grid.innerHTML="";
-    for(let i=0;i<9;i++){
+    for(let i=0; i<100; i++){
         const cell = document.createElement("div");
         cell.classList.add("cell");
-        cell.dataset.index=i;
-        cell.dataset.player=player;
+        cell.dataset.index = i;
+        cell.dataset.player = player;
         cell.addEventListener("click", handlePlayClick);
         grid.appendChild(cell);
     }
     renderHearts(1);
     renderHearts(2);
 }
+
 
 function handlePlayClick(e){
     const cell = e.target;

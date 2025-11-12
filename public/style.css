@@ -99,8 +99,9 @@ body {
   
   .grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-gap: 8px;
+    grid-template-columns: repeat(10, 35px); /* 10 أعمدة */
+    grid-template-rows: repeat(10, 35px);
+    gap: 8px;
     margin-top: 10px;
     width: 100%;
   }
