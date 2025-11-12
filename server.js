@@ -48,6 +48,23 @@ io.on("connection", (socket) => {
         socket.on("playerBegin", (data) => {
             io.to(data.roomId).emit("updateBegin", data.player);
         });
+        // اختيار المربعات الخطرة
+socket.on("chooseDanger", (data) => {
+    socket.to(data.roomId).emit("updateDanger", data);
+});
+
+// لما اللاعب يخلص اختياره
+socket.on("playerFinishedSelection", (data) => {
+    // إذا خلص الأول → نبلغ الثاني يبدأ اختياره
+    if (data.player === 1) {
+        io.to(data.roomId).emit("startPlayer2Setup");
+    }
+    // إذا خلص الثاني → نبدأ اللعبة
+    if (data.player === 2) {
+        io.to(data.roomId).emit("startGame");
+    }
+});
+
 
         // اختيار المربعات الخطرة
         socket.on("chooseDanger", (data) => {
