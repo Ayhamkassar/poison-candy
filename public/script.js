@@ -1,10 +1,10 @@
 // ------------------- متغيرات اللعبة -------------------
-let setupPhase = false; // صار false حتى لا تظهر الشبكة قبل Ready
+let setupPhase = false;
 let currentPlayer = 1;
 let dangerCount = 0;
-let playerDangerSelections = {1: [], 2: []};
-let lives = {1: 3, 2: 3};
-let readyToBegin = {1: false, 2: false};
+let playerDangerSelections = { 1: [], 2: [] };
+let lives = { 1: 3, 2: 3 };
+let readyToBegin = { 1: false, 2: false };
 
 // عناصر DOM
 const grid1 = document.getElementById("grid1");
@@ -18,44 +18,59 @@ const readyBtn2 = document.getElementById("readyBtn2");
 const socket = io();
 let playerNumber = null;
 
-socket.emit("joinRoom","room1");
+// ------------------- الانضمام للغرفة -------------------
+socket.emit("joinRoom", "room1");
 
-socket.on("playerNumber", num => {
+socket.on("playerNumber", (num) => {
     playerNumber = num;
+    console.log("🎮 أنت اللاعب رقم:", num);
+    document.getElementById(`player${num}Status`).textContent = `اللاعب ${num}: متصل`;
+});
+
+socket.on("roomFull", () => {
+    alert("❌ الغرفة ممتلئة! لا يمكن دخول المزيد من اللاعبين.");
+});
+
+// ------------------- تحديث عدد اللاعبين -------------------
+socket.on("roomStatus", (count) => {
+    if (count >= 1) document.getElementById("player1Status").textContent = "اللاعب 1: متصل";
+    if (count >= 2) document.getElementById("player2Status").textContent = "اللاعب 2: متصل";
 });
 
 // ------------------- Ready -------------------
-// عند الضغط على Ready
 readyBtn1.addEventListener("click", () => handleReady(1));
 readyBtn2.addEventListener("click", () => handleReady(2));
 
 function handleReady(num) {
-    // إذا هذا الزر لا يخص اللاعب الحالي، لا يعمل
-    if(playerNumber !== num) return; // هاد يمنع اللاعب 1 من الضغط على زر اللاعب 2 والعكس
+    // ممنوع اللاعب يضغط زر اللاعب الآخر
+    if (playerNumber !== num) return;
 
     readyToBegin[num] = true;
-
-    // تحديث النص مباشرة
     const statusElem = document.getElementById(`player${num}Status`);
     statusElem.textContent = `اللاعب ${num}: جاهز`;
 
-    // تعطيل الزر
-    if(num === 1) readyBtn1.disabled = true;
-    if(num === 2) readyBtn2.disabled = true;
+    if (num === 1) readyBtn1.disabled = true;
+    if (num === 2) readyBtn2.disabled = true;
 
-    alert(`اللاعب ${num} جاهز!`);
-
-    // إذا كلا اللاعبين جاهزين، نبدأ مرحلة اختيار المربعات
-    if(readyToBegin[1] && readyToBegin[2]) {
-        setupPhase = true;
-        alert("كلا اللاعبين جاهز! الآن يمكن اختيار 3 مربعات خطرة لكل لاعب.");
-
-        // لكل لاعب، أنشئ شبكته الخاصة فقط إذا هو نفسه اللاعب الحالي
-        if(playerNumber === 1) createGridForSetup(1);
-        if(playerNumber === 2) createGridForSetup(2);
-    }
+    socket.emit("playerReady", { roomId: "room1", player: num });
 }
 
+// استقبال جاهزية اللاعبين من الطرف الآخر
+socket.on("updateReady", (num) => {
+    const statusElem = document.getElementById(`player${num}Status`);
+    statusElem.textContent = `اللاعب ${num}: جاهز`;
+    if (num === 1) readyBtn1.disabled = true;
+    if (num === 2) readyBtn2.disabled = true;
+    readyToBegin[num] = true;
+
+    // لما يصيروا الاتنين جاهزين نبدأ المرحلة
+    if (readyToBegin[1] && readyToBegin[2]) {
+        setupPhase = true;
+        alert("كلا اللاعبين جاهزان! الآن اختر 3 مربعات خطرة.");
+        if (playerNumber === 1) createGridForSetup(1);
+        if (playerNumber === 2) createGridForSetup(2);
+    }
+});
 
 // ------------------- اختيار مربعات الخطر -------------------
 function createGridForSetup(player) {
@@ -63,22 +78,21 @@ function createGridForSetup(player) {
     grid.innerHTML = "";
     dangerCount = 0;
 
-    for(let i=0; i<9; i++){
+    for (let i = 0; i < 9; i++) {
         const cell = document.createElement("div");
         cell.classList.add("cell");
         cell.dataset.index = i;
         cell.dataset.player = player;
-        // إضافة الحدث فقط للاعب نفسه
-        if(playerNumber === player) cell.addEventListener("click", handleSetupClick);
+        if (playerNumber === player) cell.addEventListener("click", handleSetupClick);
         grid.appendChild(cell);
     }
 
-    if(playerNumber === player) alert(`اللاعب ${player}، اختر 3 مربعات خطر`);
+    if (playerNumber === player) alert(`اللاعب ${player}، اختر 3 مربعات خطرة.`);
 }
 
 function handleSetupClick(e) {
     const cell = e.target;
-    if(cell.classList.contains("danger-setup")) return;
+    if (cell.classList.contains("danger-setup")) return;
 
     cell.classList.add("danger-setup");
     playerDangerSelections[playerNumber].push(parseInt(cell.dataset.index));
@@ -86,25 +100,25 @@ function handleSetupClick(e) {
 
     socket.emit("chooseDanger", { roomId: "room1", player: playerNumber, index: parseInt(cell.dataset.index) });
 
-    // تفعيل زر Begin بعد اختيار 3 مربعات
-    if(dangerCount === 3){
-        if(playerNumber === 1) begin1.disabled = false;
-        if(playerNumber === 2) begin2.disabled = false;
-        alert("لقد اخترت 3 مربعات خطرة! اضغط Begin للمتابعة.");
+    if (dangerCount === 3) {
+        if (playerNumber === 1) begin1.disabled = false;
+        if (playerNumber === 2) begin2.disabled = false;
+        alert("اخترت 3 مربعات! اضغط Begin للمتابعة.");
     }
 }
 
 // ------------------- أزرار Begin -------------------
-begin1.addEventListener("click", () => { readyToBegin[1] = "begin"; checkBothBegin(); begin1.disabled = true; });
-begin2.addEventListener("click", () => { readyToBegin[2] = "begin"; checkBothBegin(); begin2.disabled = true; });
+begin1.addEventListener("click", () => { readyToBegin[1] = "begin"; socket.emit("playerBegin", { roomId: "room1", player: 1 }); });
+begin2.addEventListener("click", () => { readyToBegin[2] = "begin"; socket.emit("playerBegin", { roomId: "room1", player: 2 }); });
 
-function checkBothBegin() {
-    if(readyToBegin[1] === "begin" && readyToBegin[2] === "begin") {
+socket.on("updateBegin", (num) => {
+    readyToBegin[num] = "begin";
+    if (readyToBegin[1] === "begin" && readyToBegin[2] === "begin") {
         setupPhase = false;
         currentPlayer = 1;
         startGame();
     }
-}
+});
 
 // ------------------- بدء اللعبة -------------------
 function startGame() {
@@ -112,11 +126,11 @@ function startGame() {
     createGrid(2, playerDangerSelections[2]);
 }
 
-// ------------------- إنشاء الشبكة النهائية -------------------
+// ------------------- إنشاء الشبكة -------------------
 function createGrid(player, dangers) {
     const grid = player === 1 ? grid1 : grid2;
     grid.innerHTML = "";
-    for(let i=0; i<9; i++){
+    for (let i = 0; i < 9; i++) {
         const cell = document.createElement("div");
         cell.classList.add("cell");
         cell.dataset.index = i;
@@ -132,16 +146,23 @@ function handlePlayClick(e) {
     const cell = e.target;
     const player = parseInt(cell.dataset.player);
 
-    if(player !== currentPlayer){ alert(`دور اللاعب ${currentPlayer}`); return; }
-    if(cell.classList.contains("clicked")) return;
+    if (player !== currentPlayer) {
+        alert(`دور اللاعب ${currentPlayer}`);
+        return;
+    }
+    if (cell.classList.contains("clicked")) return;
 
     cell.classList.add("clicked");
     const isDanger = playerDangerSelections[player].includes(parseInt(cell.dataset.index));
-    if(isDanger){
+    if (isDanger) {
         cell.classList.add("danger");
         lives[player]--;
         renderHearts(player);
-        if(lives[player] === 0){ alert(`انتهت اللعبة! اللاعب ${player} خسر.`); revealAll(player); return; }
+        if (lives[player] === 0) {
+            alert(`انتهت اللعبة! اللاعب ${player} خسر.`);
+            revealAll(player);
+            return;
+        }
     } else cell.textContent = "🍬";
 
     socket.emit("cellClicked", { roomId: "room1", player, index: parseInt(cell.dataset.index), isDanger });
@@ -155,26 +176,26 @@ function renderHearts(player) {
 }
 
 // ------------------- كشف جميع المربعات -------------------
-function revealAll(player){
+function revealAll(player) {
     const grid = player === 1 ? grid1 : grid2;
     const dangers = playerDangerSelections[player];
     grid.childNodes.forEach((cell, idx) => {
-        if(dangers.includes(idx)) cell.classList.add("danger");
-        else if(!cell.textContent) cell.textContent = "🍬";
+        if (dangers.includes(idx)) cell.classList.add("danger");
+        else if (!cell.textContent) cell.textContent = "🍬";
     });
 }
 
-// ------------------- استقبال التحديثات Socket.IO -------------------
-socket.on("updateDanger", data => {
+// ------------------- استقبال التحديثات -------------------
+socket.on("updateDanger", (data) => {
     const grid = data.player === 1 ? grid1 : grid2;
     const cell = grid.children[data.index];
     cell.classList.add("danger-setup");
 });
 
-socket.on("updateCell", data => {
+socket.on("updateCell", (data) => {
     const grid = data.player === 1 ? grid1 : grid2;
     const cell = grid.children[data.index];
     cell.classList.add("clicked");
-    if(data.isDanger) cell.classList.add("danger");
+    if (data.isDanger) cell.classList.add("danger");
     else cell.textContent = "🍬";
 });

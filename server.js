@@ -1,44 +1,76 @@
-const express = require("express");
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public"))); // مجلد الواجهة
 
-let players = [null, null]; // حالة اللاعبين
-let readyStatus = [false, false]; // حالة Ready لكل لاعب
+let rooms = {}; // { roomCode: { players: [], dangers: {}, ready: {} } }
 
-io.on("connection", socket => {
-    // إعطاء رقم اللاعب
-    let playerNum = players[0] === null ? 1 : 2;
-    players[playerNum - 1] = "متصل";
-    socket.emit("playerNumber", playerNum);
-    io.emit("updateLobby", players);
+io.on("connection", (socket) => {
+  console.log("🔌 لاعب متصل:", socket.id);
 
-    // استقبال Ready من اللاعب
-    socket.on("playerReady", num => {
-        readyStatus[num - 1] = true;
-        if (readyStatus.every(r => r)) {
-            io.emit("startGame");
-        }
-    });
+  socket.on("createRoom", () => {
+    const roomCode = Math.random().toString(36).substring(2, 7);
+    rooms[roomCode] = { players: [socket.id], dangers: {}, ready: {} };
+    socket.join(roomCode);
+    socket.emit("roomCreated", { roomCode, playerNumber: 1 });
+    console.log("🆕 تم إنشاء غرفة:", roomCode);
+  });
 
-    // اختيار مربعات الخطر
-    socket.on("chooseDanger", data => {
-        io.emit("updateDanger", data);
-    });
+  socket.on("joinRoom", (roomCode) => {
+    const room = rooms[roomCode];
+    if (!room) {
+      socket.emit("errorMsg", "❌ الغرفة غير موجودة!");
+      return;
+    }
+    if (room.players.length >= 2) {
+      socket.emit("errorMsg", "⚠️ الغرفة ممتلئة!");
+      return;
+    }
 
-    // النقر على الخلية أثناء اللعب
-    socket.on("cellClicked", data => {
-        io.emit("updateCell", data);
-    });
+    room.players.push(socket.id);
+    socket.join(roomCode);
+    socket.emit("roomJoined", { roomCode, playerNumber: 2 });
+    io.to(roomCode).emit("bothJoined");
+    console.log("👥 لاعب دخل الغرفة:", roomCode);
+  });
 
-    socket.on("disconnect", () => {
-        players[playerNum - 1] = null;
-        readyStatus[playerNum - 1] = false;
-        io.emit("updateLobby", players);
-    });
+  socket.on("chooseDanger", ({ roomCode, player, index }) => {
+    const room = rooms[roomCode];
+    if (!room.dangers[player]) room.dangers[player] = [];
+    room.dangers[player].push(index);
+    socket.to(roomCode).emit("updateDanger", { player, index });
+  });
+
+  socket.on("playerReady", ({ roomCode, player }) => {
+    const room = rooms[roomCode];
+    room.ready[player] = true;
+    io.to(roomCode).emit("updateReady", room.ready);
+    if (room.ready[1] && room.ready[2]) {
+      io.to(roomCode).emit("startGame", room.dangers);
+    }
+  });
+
+  socket.on("cellClicked", ({ roomCode, player, index, isDanger }) => {
+    socket.to(roomCode).emit("updateCell", { player, index, isDanger });
+  });
+
+  socket.on("disconnect", () => {
+    for (const [code, room] of Object.entries(rooms)) {
+      if (room.players.includes(socket.id)) {
+        delete rooms[code];
+        io.to(code).emit("errorMsg", "🚪 اللاعب الآخر غادر الغرفة!");
+        console.log("❌ تم حذف الغرفة:", code);
+      }
+    }
+  });
 });
 
-const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(3000, () => console.log("✅ السيرفر شغال على المنفذ 3000"));
