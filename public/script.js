@@ -140,3 +140,10 @@ function revealAll(player){
         else if(!cell.textContent) cell.textContent="🍬";
     });
 }
+socket.on("gameOver", (data)=>{
+    alert(`انتهت اللعبة! اللاعب ${data.loser} خسر.`);
+    // منع أي نقرات إضافية بعد الخسارة
+    currentPlayer = null;
+    revealAll(data.loser); // كشف مربعات الخطر
+});
+

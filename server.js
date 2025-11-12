@@ -77,18 +77,28 @@ io.on("connection", (socket) => {
         socket.on("cellClicked", (data) => {
             const state = roomState[data.roomId];
             if (state.currentPlayer !== data.player) return; // مش دوره
-
+            if(state.gameOver) return; // اللعبة انتهت مسبقاً
+        
+            const isDanger = state.dangers[data.player].includes(data.index);
+        
             // خصم حياة إذا خطر
-            if (state.dangers[data.player].includes(data.index)) {
+            if (isDanger) {
                 state.lives[data.player]--;
+                if(state.lives[data.player] <= 0){
+                    state.gameOver = true;
+                    io.to(data.roomId).emit("gameOver", {loser: data.player});
+                }
             }
-
+        
             // تبادل الدور
-            state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
-
+            if(!state.gameOver){
+                state.currentPlayer = state.currentPlayer === 1 ? 2 : 1;
+                io.to(data.roomId).emit("updateTurn", state.currentPlayer);
+            }
+        
             io.to(data.roomId).emit("updateCell", data);
-            io.to(data.roomId).emit("updateTurn", state.currentPlayer);
         });
+        
 
         // ---------------- disconnect ----------------
         socket.on("disconnect", () => {
