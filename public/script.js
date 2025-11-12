@@ -25,11 +25,21 @@ socket.on("playerNumber", num => {
 });
 
 // ------------------- Ready -------------------
+// عند الضغط على Ready
 readyBtn1.addEventListener("click", () => handleReady(1));
 readyBtn2.addEventListener("click", () => handleReady(2));
 
 function handleReady(num) {
+    // إذا هذا الزر لا يخص اللاعب الحالي، لا يعمل
+    if(playerNumber !== num) return; // هاد يمنع اللاعب 1 من الضغط على زر اللاعب 2 والعكس
+
     readyToBegin[num] = true;
+
+    // تحديث النص مباشرة
+    const statusElem = document.getElementById(`player${num}Status`);
+    statusElem.textContent = `اللاعب ${num}: جاهز`;
+
+    // تعطيل الزر
     if(num === 1) readyBtn1.disabled = true;
     if(num === 2) readyBtn2.disabled = true;
 
@@ -39,11 +49,13 @@ function handleReady(num) {
     if(readyToBegin[1] && readyToBegin[2]) {
         setupPhase = true;
         alert("كلا اللاعبين جاهز! الآن يمكن اختيار 3 مربعات خطرة لكل لاعب.");
+
         // لكل لاعب، أنشئ شبكته الخاصة فقط إذا هو نفسه اللاعب الحالي
         if(playerNumber === 1) createGridForSetup(1);
         if(playerNumber === 2) createGridForSetup(2);
     }
 }
+
 
 // ------------------- اختيار مربعات الخطر -------------------
 function createGridForSetup(player) {
