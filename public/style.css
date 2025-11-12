@@ -1,7 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     background-color: #1e1e1e;
-    color: #1e1e1e;
+    color: #fff;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -22,10 +22,10 @@ body {
   }
   
   .card {
-    background-color: rgba(255,255,255,0.9);
+    background-color: rgba(255,255,255,0.95);
     padding: 15px;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     margin: 10px;
     width: 100%;
     max-width: 400px;
@@ -52,7 +52,7 @@ body {
   }
   
   .playerStatus button {
-    padding: 6px 10px;
+    padding: 6px 12px;
     font-size: 0.9rem;
     cursor: pointer;
     border: none;
@@ -72,13 +72,16 @@ body {
     gap: 20px;
     justify-content: center;
     align-items: flex-start;
-    flex-wrap: wrap; /* يلتف على الشاشات الصغيرة */
+    flex-wrap: wrap;
   }
   
   .player {
     width: 100%;
     max-width: 250px;
     text-align: center;
+    background-color: rgba(0,0,0,0.6);
+    padding: 10px;
+    border-radius: 12px;
   }
   
   button {
@@ -99,11 +102,12 @@ body {
   
   .grid {
     display: grid;
-    grid-template-columns: repeat(10, 35px); /* 10 أعمدة */
+    grid-template-columns: repeat(10, 35px);
     grid-template-rows: repeat(10, 35px);
-    gap: 8px;
+    gap: 6px;
     margin-top: 10px;
     width: 100%;
+    justify-content: center;
   }
   
   .cell {
@@ -171,6 +175,10 @@ body {
       flex-direction: column;
       gap: 15px;
       align-items: center;
+    }
+  
+    .player {
+      max-width: 90%;
     }
   }
   
